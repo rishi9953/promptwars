@@ -2,12 +2,29 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DirectorConfig } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!ai) {
+    const apiKey = process.env.API_KEY || ''; // Fallback to empty string to prevent crash
+    if (apiKey) {
+      try {
+        ai = new GoogleGenAI({ apiKey });
+      } catch (e) {
+        console.error("Failed to initialize AI", e);
+      }
+    }
+  }
+  return ai;
+};
 
 export const getDirectorUpdate = async (score: number, lives: number, timePlayed: number): Promise<DirectorConfig> => {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const client = getAI();
+    if (!client) throw new Error("AI Client not initialized (Missing API Key)");
+
+    const response = await client.models.generateContent({
+      model: "gemini-2.0-flash", // Updated to stable model if available, or keep preview
       contents: `Current game state: Score ${score}, Lives ${lives}, Seconds Played ${timePlayed}. 
       Decide the environmental parameters. Return a JSON object for a Snow Bros reimagining.`,
       config: {
@@ -26,26 +43,33 @@ export const getDirectorUpdate = async (score: number, lives: number, timePlayed
       }
     });
 
-    return JSON.parse(response.text.trim());
+    if (response.text) {
+      return JSON.parse(response.text.trim());
+    }
+    throw new Error("Empty response");
   } catch (error) {
-    console.error("Director failed:", error);
+    console.error("Director failed or AI unavailable:", error);
     return {
       lightingIntensity: 0.5,
       fogDensity: 0.2,
       snowRate: 2,
       difficulty: 1.0,
-      message: "The storm rages on..."
+      message: "The storm rages on... (AI Offline)"
     };
   }
 };
 
 export const getCoachFeedback = async (reason: string, score: number): Promise<string> => {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const client = getAI();
+    if (!client) return "Even the strongest ice cracks... (AI Offline)";
+
+    const response = await client.models.generateContent({
+      model: "gemini-2.0-flash",
       contents: `The player died because: ${reason}. Total score: ${score}. Give a 1-sentence cinematic, gritty Unreal Engine style coaching tip. Be encouraging but atmospheric.`,
     });
-    return response.text.trim();
+    const text = response.text;
+    return text ? text.trim() : "Rise again.";
   } catch (error) {
     return "Even the strongest ice cracks under pressure. Rise again.";
   }

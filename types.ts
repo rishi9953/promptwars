@@ -31,7 +31,9 @@ export interface Player extends Entity {
   isJumping: boolean;
   facing: number; // 1 or -1
   health: number;
+  lives: number;
   snowballs: number;
+  peerId?: string;
   abilities: {
     fastRun: boolean;
     fastSnow: boolean;
@@ -45,6 +47,8 @@ export interface Enemy extends Entity {
   isRolling: boolean;
   hp: number;
   variant: 'red' | 'blue' | 'boss';
+  freezeTimer?: number;
+  isDropping?: boolean;
 }
 
 export interface Particle {
